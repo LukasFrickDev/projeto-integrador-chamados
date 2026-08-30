@@ -1,18 +1,214 @@
-main {
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 4rem 1.5rem;
+.app-shell {
+  min-height: 100vh;
 }
 
-h1 {
+.app-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 3rem max(1.5rem, calc((100vw - 1080px) / 2));
+  color: #f8fafc;
+  background: #1e293b;
+}
+
+.app-header h1 {
   margin: 0 0 1rem;
-  color: #1f2937;
-  font-size: 2.25rem;
+  color: inherit;
+  font-size: 2rem;
   line-height: 1.2;
 }
 
-p {
+.app-header p {
   margin: 0;
-  color: #4b5563;
+  color: #cbd5e1;
+}
+
+.eyebrow {
+  margin: 0 0 0.5rem;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.app-header .eyebrow {
+  color: #94a3b8;
+}
+
+.profile-switcher {
+  min-width: 310px;
+}
+
+.profile-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #cbd5e1;
+  font-size: 0.875rem;
+}
+
+.profile-options {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.profile-options button {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  border: 1px solid #475569;
+  border-radius: 0.5rem;
+  color: #e2e8f0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.profile-options button:hover,
+.profile-options button.active {
+  border-color: #93c5fd;
+  background: #334155;
+}
+
+.profile-options button span {
+  color: #94a3b8;
+  font-size: 0.8rem;
+}
+
+.content {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem;
+}
+
+.section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.section-heading h2 {
+  margin: 0;
+  color: #1e293b;
+  font-size: 1.75rem;
+}
+
+.profile-context {
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+.feedback {
+  padding: 2rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 0.75rem;
+  color: #64748b;
+  background: #fff;
+  text-align: center;
+}
+
+.feedback-error {
+  border-style: solid;
+  border-color: #fecaca;
+  color: #991b1b;
+  background: #fef2f2;
+}
+
+.feedback-error p {
+  margin: 0 0 1rem;
+}
+
+.feedback-error button {
+  padding: 0.6rem 0.9rem;
+  border: 0;
+  border-radius: 0.4rem;
+  color: #fff;
+  background: #991b1b;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ticket-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.ticket-card {
+  padding: 1.25rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #fff;
+  box-shadow: 0 2px 8px rgb(15 23 42 / 5%);
+}
+
+.ticket-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.ticket-id {
+  color: #64748b;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.ticket-card h3 {
+  margin: 0 0 0.75rem;
+  color: #1e293b;
   font-size: 1.125rem;
+}
+
+.ticket-location {
+  margin: 0;
+  color: #64748b;
+}
+
+.status {
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.status-aberto {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.status-em_andamento {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.status-concluido {
+  color: #166534;
+  background: #dcfce7;
+}
+
+@media (max-width: 720px) {
+  .app-header {
+    flex-direction: column;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+  }
+
+  .profile-switcher {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
