@@ -1,8 +1,15 @@
 import { useEffect, useState } from 'react'
 
-import { buscarChamados } from './api'
+import { buscarChamado, buscarChamados, criarChamado } from './api'
 import './App.css'
-import type { Chamado, Perfil, StatusChamado } from './types'
+import type {
+  Chamado,
+  DadosCriacaoChamado,
+  HistoricoChamado,
+  Perfil,
+  StatusChamado,
+  TipoEventoHistorico,
+} from './types'
 
 const perfis: Perfil[] = [
   {
@@ -23,12 +30,43 @@ const nomesStatus: Record<StatusChamado, string> = {
   CONCLUIDO: 'Concluído',
 }
 
+const nomesEventos: Record<TipoEventoHistorico, string> = {
+  CRIACAO: 'Criação do chamado',
+  INICIO: 'Atendimento iniciado',
+  ATUALIZACAO: 'Atualização',
+  CONCLUSAO: 'Chamado concluído',
+}
+
+const formularioInicial: DadosCriacaoChamado = {
+  titulo: '',
+  local: '',
+  descricao: '',
+}
+
+type Tela = 'lista' | 'novo' | 'detalhe'
+
+function formatarData(data: string) {
+  return new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(new Date(data))
+}
+
 function App() {
   const [perfilAtivo, setPerfilAtivo] = useState(perfis[0])
   const [tentativa, setTentativa] = useState(0)
+  const [tela, setTela] = useState<Tela>('lista')
+  const [chamadoSelecionadoId, setChamadoSelecionadoId] = useState<number | null>(null)
   const [chamados, setChamados] = useState<Chamado[]>([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
+  const [detalhe, setDetalhe] = useState<Chamado | null>(null)
+  const [carregandoDetalhe, setCarregandoDetalhe] = useState(false)
+  const [erroDetalhe, setErroDetalhe] = useState<string | null>(null)
+  const [tentativaDetalhe, setTentativaDetalhe] = useState(0)
+  const [formulario, setFormulario] = useState(formularioInicial)
+  const [salvando, setSalvando] = useState(false)
+  const [erroFormulario, setErroFormulario] = useState<string | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -57,6 +95,95 @@ function App() {
     return () => controller.abort()
   }, [perfilAtivo, tentativa])
 
+  useEffect(() => {
+    if (tela !== 'detalhe' || chamadoSelecionadoId === null) {
+      return
+    }
+
+    const id = chamadoSelecionadoId
+    const controller = new AbortController()
+
+    async function carregarDetalhe() {
+      setCarregandoDetalhe(true)
+      setErroDetalhe(null)
+
+      try {
+        const dados = await buscarChamado(
+          perfilAtivo.identificador,
+          id,
+          controller.signal,
+        )
+        setDetalhe(dados)
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return
+        }
+        setDetalhe(null)
+        setErroDetalhe(error instanceof Error ? error.message : 'Não foi possível carregar o chamado.')
+      } finally {
+        if (!controller.signal.aborted) {
+          setCarregandoDetalhe(false)
+        }
+      }
+    }
+
+    void carregarDetalhe()
+
+    return () => controller.abort()
+  }, [chamadoSelecionadoId, perfilAtivo, tela, tentativaDetalhe])
+
+  function selecionarPerfil(perfil: Perfil) {
+    setPerfilAtivo(perfil)
+    setFormulario(formularioInicial)
+    setErroFormulario(null)
+    voltarParaLista()
+  }
+
+  function voltarParaLista() {
+    setTela('lista')
+    setChamadoSelecionadoId(null)
+    setDetalhe(null)
+    setErroDetalhe(null)
+  }
+
+  function abrirDetalhe(id: number) {
+    setChamadoSelecionadoId(id)
+    setTela('detalhe')
+  }
+
+  function abrirFormulario() {
+    setFormulario(formularioInicial)
+    setErroFormulario(null)
+    setTela('novo')
+  }
+
+  function atualizarCampo(campo: keyof DadosCriacaoChamado, valor: string) {
+    setFormulario((atual) => ({ ...atual, [campo]: valor }))
+  }
+
+  async function enviarFormulario(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const camposVazios = Object.values(formulario).some((valor) => !valor.trim())
+    if (camposVazios) {
+      setErroFormulario('Preencha título, local e descrição para criar o chamado.')
+      return
+    }
+
+    setSalvando(true)
+    setErroFormulario(null)
+
+    try {
+      await criarChamado(perfilAtivo.identificador, formulario)
+      setFormulario(formularioInicial)
+      voltarParaLista()
+      setTentativa((valor) => valor + 1)
+    } catch (error) {
+      setErroFormulario(error instanceof Error ? error.message : 'Não foi possível criar o chamado.')
+    } finally {
+      setSalvando(false)
+    }
+  }
+
   const tituloLista = perfilAtivo.tipo === 'SOLICITANTE' ? 'Meus chamados' : 'Chamados'
   const mensagemListaVazia =
     perfilAtivo.tipo === 'SOLICITANTE'
@@ -77,9 +204,10 @@ function App() {
           <div className="profile-options">
             {perfis.map((perfil) => (
               <button
+                aria-pressed={perfil.identificador === perfilAtivo.identificador}
                 className={perfil.identificador === perfilAtivo.identificador ? 'active' : ''}
                 key={perfil.identificador}
-                onClick={() => setPerfilAtivo(perfil)}
+                onClick={() => selecionarPerfil(perfil)}
                 type="button"
               >
                 <strong>{perfil.nome}</strong>
@@ -90,47 +218,192 @@ function App() {
         </div>
       </header>
 
-      <main className="content">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Visão atual</p>
-            <h2>{tituloLista}</h2>
+      {tela === 'lista' && (
+        <main className="content">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Visão atual</p>
+              <h2>{tituloLista}</h2>
+            </div>
+            {perfilAtivo.tipo === 'SOLICITANTE' && (
+              <button className="primary-button" onClick={abrirFormulario} type="button">
+                Novo chamado
+              </button>
+            )}
           </div>
-          <span className="profile-context">{perfilAtivo.nome}</span>
+
+          {carregando && <p className="feedback">Carregando chamados...</p>}
+
+          {!carregando && erro && (
+            <div className="feedback feedback-error" role="alert">
+              <p>{erro}</p>
+              <button type="button" onClick={() => setTentativa((valor) => valor + 1)}>
+                Tentar novamente
+              </button>
+            </div>
+          )}
+
+          {!carregando && !erro && chamados.length === 0 && (
+            <p className="feedback">{mensagemListaVazia}</p>
+          )}
+
+          {!carregando && !erro && chamados.length > 0 && (
+            <div className="ticket-list">
+              {chamados.map((chamado) => (
+                <article className="ticket-card" key={chamado.id}>
+                  <div className="ticket-card-header">
+                    <span className="ticket-id">Chamado #{chamado.id}</span>
+                    <span className={`status status-${chamado.status.toLowerCase()}`}>
+                      {nomesStatus[chamado.status]}
+                    </span>
+                  </div>
+                  <h3>{chamado.titulo}</h3>
+                  <p className="ticket-location">{chamado.local}</p>
+                  <button className="details-button" onClick={() => abrirDetalhe(chamado.id)} type="button">
+                    Ver detalhes
+                  </button>
+                </article>
+              ))}
+            </div>
+          )}
+        </main>
+      )}
+
+      {tela === 'novo' && perfilAtivo.tipo === 'SOLICITANTE' && (
+        <main className="content narrow-content">
+          <button className="back-button" onClick={voltarParaLista} type="button">
+            ← Voltar para chamados
+          </button>
+          <div className="page-heading">
+            <p className="eyebrow">Novo registro</p>
+            <h2>Novo chamado</h2>
+            <p>Descreva o problema para que a manutenção possa atendê-lo.</p>
+          </div>
+
+          <form className="ticket-form" onSubmit={enviarFormulario}>
+            <label>
+              Título
+              <input
+                onChange={(event) => atualizarCampo('titulo', event.target.value)}
+                required
+                value={formulario.titulo}
+              />
+            </label>
+            <label>
+              Local
+              <input
+                onChange={(event) => atualizarCampo('local', event.target.value)}
+                required
+                value={formulario.local}
+              />
+            </label>
+            <label>
+              Descrição
+              <textarea
+                onChange={(event) => atualizarCampo('descricao', event.target.value)}
+                required
+                rows={5}
+                value={formulario.descricao}
+              />
+            </label>
+
+            {erroFormulario && <p className="form-error" role="alert">{erroFormulario}</p>}
+
+            <div className="form-actions">
+              <button className="secondary-button" onClick={voltarParaLista} type="button">
+                Cancelar
+              </button>
+              <button className="primary-button" disabled={salvando} type="submit">
+                {salvando ? 'Salvando...' : 'Criar chamado'}
+              </button>
+            </div>
+          </form>
+        </main>
+      )}
+
+      {tela === 'detalhe' && (
+        <main className="content">
+          <button className="back-button" onClick={voltarParaLista} type="button">
+            ← Voltar para chamados
+          </button>
+
+          {carregandoDetalhe && <p className="feedback">Carregando chamado...</p>}
+
+          {!carregandoDetalhe && erroDetalhe && (
+            <div className="feedback feedback-error" role="alert">
+              <p>{erroDetalhe}</p>
+              <button type="button" onClick={() => setTentativaDetalhe((valor) => valor + 1)}>
+                Tentar novamente
+              </button>
+            </div>
+          )}
+
+          {!carregandoDetalhe && !erroDetalhe && detalhe && (
+            <DetalheChamado chamado={detalhe} />
+          )}
+        </main>
+      )}
+    </div>
+  )
+}
+
+function DetalheChamado({ chamado }: { chamado: Chamado }) {
+  return (
+    <div className="detail-layout">
+      <div className="page-heading">
+        <p className="eyebrow">Chamado #{chamado.id}</p>
+        <div className="detail-title-row">
+          <h2>{chamado.titulo}</h2>
+          <span className={`status status-${chamado.status.toLowerCase()}`}>
+            {nomesStatus[chamado.status]}
+          </span>
         </div>
+      </div>
 
-        {carregando && <p className="feedback">Carregando chamados...</p>}
-
-        {!carregando && erro && (
-          <div className="feedback feedback-error" role="alert">
-            <p>{erro}</p>
-            <button type="button" onClick={() => setTentativa((valor) => valor + 1)}>
-              Tentar novamente
-            </button>
+      <section className="detail-card" aria-labelledby="informacoes-chamado">
+        <h3 id="informacoes-chamado">Informações do chamado</h3>
+        <dl className="detail-grid">
+          <div>
+            <dt>Local</dt>
+            <dd>{chamado.local}</dd>
           </div>
-        )}
+          <div>
+            <dt>Solicitante</dt>
+            <dd>{chamado.solicitante.nome}</dd>
+          </div>
+          <div>
+            <dt>Responsável</dt>
+            <dd>{chamado.responsavel?.nome ?? 'Ainda não definido'}</dd>
+          </div>
+          <div>
+            <dt>Criado em</dt>
+            <dd>{formatarData(chamado.criado_em)}</dd>
+          </div>
+          <div className="description-block">
+            <dt>Descrição</dt>
+            <dd>{chamado.descricao}</dd>
+          </div>
+        </dl>
+      </section>
 
-        {!carregando && !erro && chamados.length === 0 && (
-          <p className="feedback">{mensagemListaVazia}</p>
-        )}
-
-        {!carregando && !erro && chamados.length > 0 && (
-          <div className="ticket-list">
-            {chamados.map((chamado) => (
-              <article className="ticket-card" key={chamado.id}>
-                <div className="ticket-card-header">
-                  <span className="ticket-id">Chamado #{chamado.id}</span>
-                  <span className={`status status-${chamado.status.toLowerCase()}`}>
-                    {nomesStatus[chamado.status]}
-                  </span>
+      <section className="detail-card" aria-labelledby="historico-chamado">
+        <h3 id="historico-chamado">Histórico</h3>
+        <div className="history-list">
+          {chamado.historico.map((evento: HistoricoChamado) => (
+            <article className="history-item" key={evento.id}>
+              <div className="history-marker" aria-hidden="true" />
+              <div className="history-content">
+                <div className="history-heading">
+                  <h4>{nomesEventos[evento.tipo_evento]}</h4>
+                  <time dateTime={evento.criado_em}>{formatarData(evento.criado_em)}</time>
                 </div>
-                <h3>{chamado.titulo}</h3>
-                <p className="ticket-location">{chamado.local}</p>
-              </article>
-            ))}
-          </div>
-        )}
-      </main>
+                <p className="history-author">Por {evento.autor.nome}</p>
+                {evento.informacao && <p className="history-info">{evento.informacao}</p>}
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
     </div>
   )
 }

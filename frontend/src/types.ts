@@ -2,6 +2,8 @@ export type TipoPerfil = 'SOLICITANTE' | 'MANUTENCAO'
 
 export type StatusChamado = 'ABERTO' | 'EM_ANDAMENTO' | 'CONCLUIDO'
 
+export type TipoEventoHistorico = 'CRIACAO' | 'INICIO' | 'ATUALIZACAO' | 'CONCLUSAO'
+
 export type Perfil = {
   identificador: string
   nome: string
@@ -17,5 +19,20 @@ export type Chamado = {
   responsavel: Perfil | null
   status: StatusChamado
   criado_em: string
-  historico: unknown[]
+  historico: HistoricoChamado[]
+}
+
+export type HistoricoChamado = {
+  id: number
+  tipo_evento: TipoEventoHistorico
+  informacao: string
+  autor: Perfil
+  status_relacionado: StatusChamado
+  criado_em: string
+}
+
+export type DadosCriacaoChamado = {
+  titulo: string
+  local: string
+  descricao: string
 }
