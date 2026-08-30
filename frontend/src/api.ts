@@ -64,3 +64,42 @@ export async function criarChamado(
   })
   await verificarResposta(response, 'Não foi possível criar o chamado.')
 }
+
+export async function iniciarChamado(identificador: string, id: number) {
+  const response = await fetch(`/api/chamados/${id}/iniciar/`, {
+    method: 'POST',
+    headers: {
+      'X-Demo-User': identificador,
+    },
+  })
+  await verificarResposta(response, 'Não foi possível iniciar o atendimento.')
+  return (await response.json()) as Chamado
+}
+
+export async function registrarAtualizacao(
+  identificador: string,
+  id: number,
+  informacao: string,
+) {
+  const response = await fetch(`/api/chamados/${id}/atualizacoes/`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Demo-User': identificador,
+    },
+    body: JSON.stringify({ informacao }),
+  })
+  await verificarResposta(response, 'Não foi possível registrar a atualização.')
+  return (await response.json()) as Chamado
+}
+
+export async function concluirChamado(identificador: string, id: number) {
+  const response = await fetch(`/api/chamados/${id}/concluir/`, {
+    method: 'POST',
+    headers: {
+      'X-Demo-User': identificador,
+    },
+  })
+  await verificarResposta(response, 'Não foi possível concluir o chamado.')
+  return (await response.json()) as Chamado
+}
