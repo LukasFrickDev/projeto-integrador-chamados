@@ -52,6 +52,7 @@ const formularioInicial: DadosCriacaoChamado = {
 
 type Tela = 'lista' | 'novo' | 'detalhe'
 type AcaoManutencao = 'iniciar' | 'atualizar' | 'concluir' | null
+type FiltroStatus = 'TODOS' | StatusChamado
 
 function formatarData(data: string) {
   return new Intl.DateTimeFormat('pt-BR', {
@@ -78,6 +79,8 @@ function App() {
   const [acaoEmAndamento, setAcaoEmAndamento] = useState<AcaoManutencao>(null)
   const [informacaoAtualizacao, setInformacaoAtualizacao] = useState('')
   const [erroAcao, setErroAcao] = useState<string | null>(null)
+  const [busca, setBusca] = useState('')
+  const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>('TODOS')
 
   useEffect(() => {
     const controller = new AbortController()
@@ -155,6 +158,8 @@ function App() {
     setChamadoSelecionadoId(null)
     setDetalhe(null)
     setErroDetalhe(null)
+    setBusca('')
+    setFiltroStatus('TODOS')
     setAcaoEmAndamento(null)
     setInformacaoAtualizacao('')
     setErroAcao(null)
@@ -266,6 +271,14 @@ function App() {
     perfilAtivo.tipo === 'SOLICITANTE'
       ? 'Você ainda não possui chamados registrados.'
       : 'Não há chamados registrados.'
+  const termoBusca = busca.trim().toLowerCase()
+  const chamadosFiltrados = chamados.filter((chamado) => {
+    const correspondeBusca =
+      chamado.titulo.toLowerCase().includes(termoBusca) ||
+      chamado.local.toLowerCase().includes(termoBusca)
+    const correspondeStatus = filtroStatus === 'TODOS' || chamado.status === filtroStatus
+    return correspondeBusca && correspondeStatus
+  })
 
   return (
     <div className="app-shell">
@@ -325,8 +338,37 @@ function App() {
           )}
 
           {!carregando && !erro && chamados.length > 0 && (
+            <div className="list-filters">
+              <label>
+                Buscar por título ou local
+                <input
+                  onChange={(event) => setBusca(event.target.value)}
+                  type="search"
+                  value={busca}
+                />
+              </label>
+              <label>
+                Filtrar por status
+                <select
+                  onChange={(event) => setFiltroStatus(event.target.value as FiltroStatus)}
+                  value={filtroStatus}
+                >
+                  <option value="TODOS">Todos os status</option>
+                  <option value="ABERTO">Aberto</option>
+                  <option value="EM_ANDAMENTO">Em andamento</option>
+                  <option value="CONCLUIDO">Concluído</option>
+                </select>
+              </label>
+            </div>
+          )}
+
+          {!carregando && !erro && chamados.length > 0 && chamadosFiltrados.length === 0 && (
+            <p className="feedback">Nenhum chamado encontrado com os filtros selecionados.</p>
+          )}
+
+          {!carregando && !erro && chamadosFiltrados.length > 0 && (
             <div className="ticket-list">
-              {chamados.map((chamado) => (
+              {chamadosFiltrados.map((chamado) => (
                 <article className="ticket-card" key={chamado.id}>
                   <div className="ticket-card-header">
                     <span className="ticket-id">Chamado #{chamado.id}</span>
