@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react'
 
-import { buscarChamado, buscarChamados, criarChamado } from './api'
+import {
+  buscarChamado,
+  buscarChamados,
+  criarChamado,
+  concluirChamado,
+  iniciarChamado,
+  registrarAtualizacao,
+} from './api'
 import './App.css'
 import type {
   Chamado,
@@ -44,6 +51,7 @@ const formularioInicial: DadosCriacaoChamado = {
 }
 
 type Tela = 'lista' | 'novo' | 'detalhe'
+type AcaoManutencao = 'iniciar' | 'atualizar' | 'concluir' | null
 
 function formatarData(data: string) {
   return new Intl.DateTimeFormat('pt-BR', {
@@ -67,6 +75,9 @@ function App() {
   const [formulario, setFormulario] = useState(formularioInicial)
   const [salvando, setSalvando] = useState(false)
   const [erroFormulario, setErroFormulario] = useState<string | null>(null)
+  const [acaoEmAndamento, setAcaoEmAndamento] = useState<AcaoManutencao>(null)
+  const [informacaoAtualizacao, setInformacaoAtualizacao] = useState('')
+  const [erroAcao, setErroAcao] = useState<string | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -144,6 +155,9 @@ function App() {
     setChamadoSelecionadoId(null)
     setDetalhe(null)
     setErroDetalhe(null)
+    setAcaoEmAndamento(null)
+    setInformacaoAtualizacao('')
+    setErroAcao(null)
   }
 
   function abrirDetalhe(id: number) {
@@ -181,6 +195,69 @@ function App() {
       setErroFormulario(error instanceof Error ? error.message : 'Não foi possível criar o chamado.')
     } finally {
       setSalvando(false)
+    }
+  }
+
+  async function executarInicio() {
+    if (!detalhe) {
+      return
+    }
+
+    setAcaoEmAndamento('iniciar')
+    setErroAcao(null)
+    try {
+      const chamadoAtualizado = await iniciarChamado(perfilAtivo.identificador, detalhe.id)
+      setDetalhe(chamadoAtualizado)
+      setTentativa((valor) => valor + 1)
+    } catch (error) {
+      setErroAcao(error instanceof Error ? error.message : 'Não foi possível iniciar o atendimento.')
+    } finally {
+      setAcaoEmAndamento(null)
+    }
+  }
+
+  async function executarAtualizacao() {
+    if (!detalhe) {
+      return
+    }
+    if (!informacaoAtualizacao.trim()) {
+      setErroAcao('Informe o texto da atualização.')
+      return
+    }
+
+    setAcaoEmAndamento('atualizar')
+    setErroAcao(null)
+    try {
+      const chamadoAtualizado = await registrarAtualizacao(
+        perfilAtivo.identificador,
+        detalhe.id,
+        informacaoAtualizacao,
+      )
+      setDetalhe(chamadoAtualizado)
+      setInformacaoAtualizacao('')
+      setTentativa((valor) => valor + 1)
+    } catch (error) {
+      setErroAcao(error instanceof Error ? error.message : 'Não foi possível registrar a atualização.')
+    } finally {
+      setAcaoEmAndamento(null)
+    }
+  }
+
+  async function executarConclusao() {
+    if (!detalhe) {
+      return
+    }
+
+    setAcaoEmAndamento('concluir')
+    setErroAcao(null)
+    try {
+      const chamadoAtualizado = await concluirChamado(perfilAtivo.identificador, detalhe.id)
+      setDetalhe(chamadoAtualizado)
+      setTentativa((valor) => valor + 1)
+    } catch (error) {
+      setErroAcao(error instanceof Error ? error.message : 'Não foi possível concluir o chamado.')
+    } finally {
+      setAcaoEmAndamento(null)
     }
   }
 
@@ -339,7 +416,17 @@ function App() {
           )}
 
           {!carregandoDetalhe && !erroDetalhe && detalhe && (
-            <DetalheChamado chamado={detalhe} />
+            <DetalheChamado
+              acaoEmAndamento={acaoEmAndamento}
+              chamado={detalhe}
+              erroAcao={erroAcao}
+              informacaoAtualizacao={informacaoAtualizacao}
+              onConcluir={executarConclusao}
+              onIniciar={executarInicio}
+              onInformacaoAtualizacao={setInformacaoAtualizacao}
+              onRegistrarAtualizacao={executarAtualizacao}
+              perfil={perfilAtivo}
+            />
           )}
         </main>
       )}
@@ -347,7 +434,35 @@ function App() {
   )
 }
 
-function DetalheChamado({ chamado }: { chamado: Chamado }) {
+type DetalheChamadoProps = {
+  acaoEmAndamento: AcaoManutencao
+  chamado: Chamado
+  erroAcao: string | null
+  informacaoAtualizacao: string
+  onConcluir: () => void
+  onIniciar: () => void
+  onInformacaoAtualizacao: (valor: string) => void
+  onRegistrarAtualizacao: () => void
+  perfil: Perfil
+}
+
+function DetalheChamado({
+  acaoEmAndamento,
+  chamado,
+  erroAcao,
+  informacaoAtualizacao,
+  onConcluir,
+  onIniciar,
+  onInformacaoAtualizacao,
+  onRegistrarAtualizacao,
+  perfil,
+}: DetalheChamadoProps) {
+  const podeExibirAcoes =
+    perfil.tipo === 'MANUTENCAO' &&
+    (chamado.status === 'ABERTO' ||
+      (chamado.status === 'EM_ANDAMENTO' &&
+        chamado.responsavel?.identificador === perfil.identificador))
+
   return (
     <div className="detail-layout">
       <div className="page-heading">
@@ -385,6 +500,56 @@ function DetalheChamado({ chamado }: { chamado: Chamado }) {
           </div>
         </dl>
       </section>
+
+      {podeExibirAcoes && (
+        <section className="detail-card maintenance-actions" aria-labelledby="acoes-atendimento">
+          <h3 id="acoes-atendimento">Ações de atendimento</h3>
+          {erroAcao && <p className="action-error" role="alert">{erroAcao}</p>}
+
+          {chamado.status === 'ABERTO' && (
+            <button
+              className="primary-button"
+              disabled={acaoEmAndamento !== null}
+              onClick={onIniciar}
+              type="button"
+            >
+              {acaoEmAndamento === 'iniciar' ? 'Iniciando...' : 'Iniciar atendimento'}
+            </button>
+          )}
+
+          {chamado.status === 'EM_ANDAMENTO' && chamado.responsavel?.identificador === perfil.identificador && (
+            <>
+              <label className="update-field">
+                Atualização do atendimento
+                <textarea
+                  disabled={acaoEmAndamento !== null}
+                  onChange={(event) => onInformacaoAtualizacao(event.target.value)}
+                  rows={4}
+                  value={informacaoAtualizacao}
+                />
+              </label>
+              <div className="action-buttons">
+                <button
+                  className="secondary-button"
+                  disabled={acaoEmAndamento !== null}
+                  onClick={onRegistrarAtualizacao}
+                  type="button"
+                >
+                  {acaoEmAndamento === 'atualizar' ? 'Registrando...' : 'Registrar atualização'}
+                </button>
+                <button
+                  className="primary-button"
+                  disabled={acaoEmAndamento !== null}
+                  onClick={onConcluir}
+                  type="button"
+                >
+                  {acaoEmAndamento === 'concluir' ? 'Concluindo...' : 'Concluir chamado'}
+                </button>
+              </div>
+            </>
+          )}
+        </section>
+      )}
 
       <section className="detail-card" aria-labelledby="historico-chamado">
         <h3 id="historico-chamado">Histórico</h3>
