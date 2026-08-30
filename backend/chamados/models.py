@@ -76,5 +76,3 @@ class HistoricoChamado(models.Model):
 
     def __str__(self):
         return f'{self.get_tipo_evento_display()} - {self.chamado}'
-
-# Create your models here.
