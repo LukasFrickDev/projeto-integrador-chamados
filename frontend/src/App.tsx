@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import {
   buscarChamado,
@@ -36,6 +36,13 @@ const nomesStatus: Record<StatusChamado, string> = {
   EM_ANDAMENTO: 'Em andamento',
   CONCLUIDO: 'Concluído',
 }
+
+const opcoesStatus: Array<{ valor: FiltroStatus; nome: string }> = [
+  { valor: 'TODOS', nome: 'Todos os status' },
+  { valor: 'ABERTO', nome: 'Aberto' },
+  { valor: 'EM_ANDAMENTO', nome: 'Em andamento' },
+  { valor: 'CONCLUIDO', nome: 'Concluído' },
+]
 
 const nomesEventos: Record<TipoEventoHistorico, string> = {
   CRIACAO: 'Criação do chamado',
@@ -81,6 +88,10 @@ function App() {
   const [erroAcao, setErroAcao] = useState<string | null>(null)
   const [busca, setBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>('TODOS')
+  const [statusMenuAberto, setStatusMenuAberto] = useState(false)
+  const filtroStatusRef = useRef<HTMLDivElement>(null)
+  const filtroStatusBotaoRef = useRef<HTMLButtonElement>(null)
+  const opcoesStatusRefs = useRef<Array<HTMLButtonElement | null>>([])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -145,6 +156,24 @@ function App() {
 
     return () => controller.abort()
   }, [chamadoSelecionadoId, perfilAtivo, tela, tentativaDetalhe])
+
+  useEffect(() => {
+    if (!statusMenuAberto) {
+      return
+    }
+
+    const indiceSelecionado = opcoesStatus.findIndex((opcao) => opcao.valor === filtroStatus)
+    opcoesStatusRefs.current[indiceSelecionado >= 0 ? indiceSelecionado : 0]?.focus()
+
+    function fecharAoClicarFora(event: MouseEvent) {
+      if (!filtroStatusRef.current?.contains(event.target as Node)) {
+        setStatusMenuAberto(false)
+      }
+    }
+
+    document.addEventListener('mousedown', fecharAoClicarFora)
+    return () => document.removeEventListener('mousedown', fecharAoClicarFora)
+  }, [filtroStatus, statusMenuAberto])
 
   function selecionarPerfil(perfil: Perfil) {
     setPerfilAtivo(perfil)
@@ -347,18 +376,88 @@ function App() {
                   value={busca}
                 />
               </label>
-              <label>
-                Filtrar por status
-                <select
-                  onChange={(event) => setFiltroStatus(event.target.value as FiltroStatus)}
-                  value={filtroStatus}
-                >
-                  <option value="TODOS">Todos os status</option>
-                  <option value="ABERTO">Aberto</option>
-                  <option value="EM_ANDAMENTO">Em andamento</option>
-                  <option value="CONCLUIDO">Concluído</option>
-                </select>
-              </label>
+              <div className="status-filter-field">
+                <label id="filtro-status-label" htmlFor="filtro-status-controle">
+                  Filtrar por status
+                </label>
+                <div className="status-dropdown" ref={filtroStatusRef}>
+                  <button
+                    aria-controls="filtro-status-opcoes"
+                    aria-expanded={statusMenuAberto}
+                    aria-haspopup="listbox"
+                    className="status-dropdown-trigger"
+                    id="filtro-status-controle"
+                    onClick={() => setStatusMenuAberto((aberto) => !aberto)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Escape') {
+                        event.preventDefault()
+                        setStatusMenuAberto(false)
+                        filtroStatusBotaoRef.current?.focus()
+                      }
+                      if (event.key === 'ArrowDown' && !statusMenuAberto) {
+                        event.preventDefault()
+                        setStatusMenuAberto(true)
+                      }
+                      if ((event.key === 'Enter' || event.key === ' ') && statusMenuAberto) {
+                        event.preventDefault()
+                      }
+                    }}
+                    ref={filtroStatusBotaoRef}
+                    type="button"
+                  >
+                    {opcoesStatus.find((opcao) => opcao.valor === filtroStatus)?.nome}
+                    <span aria-hidden="true">⌄</span>
+                  </button>
+                  {statusMenuAberto && (
+                    <div className="status-dropdown-menu" id="filtro-status-opcoes" role="listbox">
+                      {opcoesStatus.map((opcao) => (
+                        <button
+                          aria-selected={opcao.valor === filtroStatus}
+                          className={opcao.valor === filtroStatus ? 'selected' : ''}
+                          key={opcao.valor}
+                          onClick={() => {
+                            setFiltroStatus(opcao.valor)
+                            setStatusMenuAberto(false)
+                            filtroStatusBotaoRef.current?.focus()
+                          }}
+                          onKeyDown={(event) => {
+                            const indiceAtual = opcoesStatus.findIndex((item) => item.valor === opcao.valor)
+                            if (event.key === 'Escape') {
+                              event.preventDefault()
+                              setStatusMenuAberto(false)
+                              filtroStatusBotaoRef.current?.focus()
+                            }
+                            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                              event.preventDefault()
+                              const deslocamento = event.key === 'ArrowDown' ? 1 : -1
+                              const proximoIndice = (indiceAtual + deslocamento + opcoesStatus.length) % opcoesStatus.length
+                              opcoesStatusRefs.current[proximoIndice]?.focus()
+                            }
+                            if (event.key === 'Home' || event.key === 'End') {
+                              event.preventDefault()
+                              const indiceDestino = event.key === 'Home' ? 0 : opcoesStatus.length - 1
+                              opcoesStatusRefs.current[indiceDestino]?.focus()
+                            }
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault()
+                              setFiltroStatus(opcao.valor)
+                              setStatusMenuAberto(false)
+                              filtroStatusBotaoRef.current?.focus()
+                            }
+                          }}
+                          role="option"
+                          ref={(element) => {
+                            opcoesStatusRefs.current[opcoesStatus.findIndex((item) => item.valor === opcao.valor)] = element
+                          }}
+                          type="button"
+                        >
+                          {opcao.nome}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
@@ -514,8 +613,8 @@ function DetalheChamado({
           <span className={`status status-${chamado.status.toLowerCase()}`}>
             {nomesStatus[chamado.status]}
           </span>
-        </div>
-      </div>
+                </div>
+              </div>
 
       <section className="detail-card" aria-labelledby="informacoes-chamado">
         <h3 id="informacoes-chamado">Informações do chamado</h3>

@@ -1,10 +1,33 @@
 :root {
-  font-family: Arial, sans-serif;
-  color: #1f2937;
-  background: #f3f4f6;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --cor-marca: #1e293b;
+  --cor-acao: #2563eb;
+  --cor-acao-hover: #1d4ed8;
+  --cor-destaque: #93c5fd;
+  --cor-foco: #bfdbfe;
+  --cor-fundo-acao: #eff6ff;
+  --cor-texto: #1f2937;
+  --cor-texto-secundario: #64748b;
+  --cor-texto-claro: #f8fafc;
+  --cor-superficie: #fff;
+  --cor-fundo: #f7f8fa;
+  --cor-borda: #e2e8f0;
+  --cor-borda-controle: #cbd5e1;
+  --status-aberto-texto: #1d4ed8;
+  --status-aberto-fundo: #eff6ff;
+  --status-andamento-texto: #92400e;
+  --status-andamento-fundo: #fffbeb;
+  --status-concluido-texto: #166534;
+  --status-concluido-fundo: #f0fdf4;
+  color: var(--cor-texto);
+  background: var(--cor-fundo);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
@@ -13,7 +36,14 @@ body {
   margin: 0;
 }
 
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
 button:focus-visible {
-  outline: 3px solid #93c5fd;
+  outline: 3px solid var(--cor-destaque);
   outline-offset: 2px;
 }
