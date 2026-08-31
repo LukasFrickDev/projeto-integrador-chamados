@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -122,6 +123,82 @@ class ModelosChamadosTests(TestCase):
             list(chamado.historico.all()),
             [primeiro, segundo, terceiro],
         )
+
+
+class SeedDemoTests(TestCase):
+    def test_seed_em_banco_vazio_cria_cenario_completo(self):
+        call_command('seed_demo')
+
+        self.assertEqual(PerfilDemo.objects.count(), 2)
+        self.assertEqual(Chamado.objects.count(), 3)
+        self.assertSetEqual(
+            set(Chamado.objects.values_list('status', flat=True)),
+            {
+                StatusChamado.ABERTO,
+                StatusChamado.EM_ANDAMENTO,
+                StatusChamado.CONCLUIDO,
+            },
+        )
+        self.assertEqual(PerfilDemo.objects.get(identificador='mariana').nome, 'Mariana Ribeiro')
+        self.assertEqual(PerfilDemo.objects.get(identificador='rafael').nome, 'Rafael Martins')
+
+    def test_seed_cria_historicos_coerentes_com_os_status(self):
+        call_command('seed_demo')
+
+        historicos_por_titulo = {
+            chamado.titulo: list(
+                chamado.historico.values_list('tipo_evento', flat=True)
+            )
+            for chamado in Chamado.objects.all()
+        }
+
+        self.assertEqual(
+            historicos_por_titulo['Lâmpada queimada na sala'],
+            [TipoEventoHistorico.CRIACAO],
+        )
+        self.assertEqual(
+            historicos_por_titulo['Ar-condicionado sem funcionar'],
+            [
+                TipoEventoHistorico.CRIACAO,
+                TipoEventoHistorico.INICIO,
+                TipoEventoHistorico.ATUALIZACAO,
+            ],
+        )
+        self.assertEqual(
+            historicos_por_titulo['Torneira com vazamento'],
+            [
+                TipoEventoHistorico.CRIACAO,
+                TipoEventoHistorico.INICIO,
+                TipoEventoHistorico.ATUALIZACAO,
+                TipoEventoHistorico.CONCLUSAO,
+            ],
+        )
+
+    def test_seed_repetido_nao_duplica_chamados_nem_historicos(self):
+        call_command('seed_demo')
+        contagem_chamados = Chamado.objects.count()
+        contagem_historicos = HistoricoChamado.objects.count()
+
+        call_command('seed_demo')
+
+        self.assertEqual(Chamado.objects.count(), contagem_chamados)
+        self.assertEqual(HistoricoChamado.objects.count(), contagem_historicos)
+
+    def test_seed_com_reset_remove_adicionais_e_restaura_cenario(self):
+        call_command('seed_demo')
+        mariana = PerfilDemo.objects.get(identificador='mariana')
+        Chamado.objects.create(
+            titulo='Chamado adicional',
+            descricao='Registro criado para testar o reset.',
+            local='Sala extra',
+            solicitante=mariana,
+        )
+
+        call_command('seed_demo', reset=True)
+
+        self.assertEqual(Chamado.objects.count(), 3)
+        self.assertFalse(Chamado.objects.filter(titulo='Chamado adicional').exists())
+        self.assertEqual(HistoricoChamado.objects.count(), 8)
 
 
 class ApiChamadosTests(TestCase):
