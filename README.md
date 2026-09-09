@@ -381,7 +381,19 @@ rafael
 ```
 
 ## Repositório
+###########################################################################################
+Projeto Integrador — 2ª Entrega
 
+Integrante:
+Felipe Villa Verde Santos (Entrega individual segundo e-mail que recebi)
+
+Repositório GitHub:
+https://github.com/felipevverdes-dev/ConectaServ
+
+O repositório contém o código-fonte da prova de conceito ConectaServ, README com instruções de execução, roteiro de validação e captura de tela da aplicação.
+
+A prova de conceito implementa o cadastro e a consulta de atendimentos, a validação dos campos obrigatórios, o bloqueio de agendamentos na mesma data e horário e a persistência dos dados em SQLite, conforme a jornada proposta na primeira entrega.
+########################################################################################################################################################################################################################
 GitHub:
 
 https://github.com/LukasFrickDev/projeto-integrador-chamados
